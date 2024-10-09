@@ -19,7 +19,7 @@
 #ifndef itkFastGrowCut_hxx
 #define itkFastGrowCut_hxx
 
-
+#include "itkFastGrowCut.h"
 #include "itkPrintHelper.h"
 #include "itkImageMaskSpatialObject.h"
 
