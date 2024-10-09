@@ -1,21 +1,26 @@
-# This example script demonstrates how a grow-cut
-# operation can be performed without graphical user interface.
 
-# The first half of the script downloads input data and creates seed segments.
-# The second half of the script converts segments to merged labelmap (that's the required
-# input format for grow-cut filter), computes the complete segmentation, and writes
-# results into new segments.
-
-# Generate input data
-################################################
 
 import vtkSegmentationCorePython as vtkSegmentationCore 
 import vtkSlicerSegmentationsModuleLogicPython as vtkSlicerSegmentationsModuleLogic
-import SampleData
+import vtkITK
 
-# Load master volume
-sampleDataLogic = SampleData.SampleDataLogic()
-masterVolumeNode = sampleDataLogic.downloadMRBrainTumor1()
+
+# Create master volume
+masterVolumeNode = slicer.util.loadVolume("D:\datasets\diamcad\RSD0711-1B.tif")
+
+extent = masterVolumeNode.GetImageData().GetExtent()
+# set origin
+origin = masterVolumeNode.GetImageData().GetOrigin()
+origin = [0, 0, 0]
+masterVolumeNode.GetImageData().SetOrigin(origin)
+# set direction
+direction = masterVolumeNode.GetImageData().GetDirectionMatrix()
+print(direction)
+# new_direction = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]
+# for i in range(3):
+#     for j in range(3):
+#         direction.SetElement(i, j, new_direction[i][j])
+# masterVolumeNode.GetImageData().SetDirectionMatrix(direction)
 
 # Create segmentation
 segmentationNode = slicer.vtkMRMLSegmentationNode()
@@ -23,15 +28,26 @@ slicer.mrmlScene.AddNode(segmentationNode)
 segmentationNode.CreateDefaultDisplayNodes() # only needed for display
 segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(masterVolumeNode)
 
+
 # Create seed segment inside tumor
-tumorSeed = vtk.vtkSphereSource()
-tumorSeed.SetCenter(-6, 30, 28)
-tumorSeed.SetRadius(10)
-tumorSeed.Update()
-segmentationNode.AddSegmentFromClosedSurfaceRepresentation(tumorSeed.GetOutput(), "Tumor", [1.0,0.0,0.0])
+diamond_seed = vtk.vtkSphereSource()
+diamond_seed.SetCenter(-extent[1]/2, -extent[3]/2, extent[5]/2)
+diamond_seed.SetRadius(10)
+diamond_seed.Update()
+segmentationNode.AddSegmentFromClosedSurfaceRepresentation(diamond_seed.GetOutput(), "Diamond", [1.0,0.0,0.0])
 
 # Create seed segment outside tumor
-backgroundSeedPositions = [[0,65,32], [1, -14, 30], [0, 28, -7], [0,30,64], [31, 33, 27], [-42, 30, 27]]
+# corners
+backgroundSeedPositions = [
+        [-extent[0], -extent[2], extent[4]],
+        [-extent[1], -extent[2], extent[4]],
+        [-extent[0], -extent[3], extent[4]],
+        [-extent[1], -extent[3], extent[4]],
+        [-extent[0], -extent[2], extent[5]],
+        [-extent[1], -extent[2], extent[5]],
+        [-extent[0], -extent[3], extent[5]],
+        [-extent[1], -extent[3], extent[5]]
+    ]
 append = vtk.vtkAppendPolyData()
 for backgroundSeedPosition in backgroundSeedPositions:
   backgroundSeed = vtk.vtkSphereSource()
@@ -41,7 +57,7 @@ for backgroundSeedPosition in backgroundSeedPositions:
   append.AddInputData(backgroundSeed.GetOutput())
 
 append.Update()
-backgroundSegmentId = segmentationNode.AddSegmentFromClosedSurfaceRepresentation(append.GetOutput(), "Background", [0.0,1.0,0.0])
+segmentationNode.AddSegmentFromClosedSurfaceRepresentation(append.GetOutput(), "Background", [0.0,1.0,0.0])
 
 # Perform grow-cut
 ################################################
@@ -82,17 +98,23 @@ segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImage,
   vtkSegmentationCore.vtkSegmentation.EXTENT_UNION_OF_EFFECTIVE_SEGMENTS, mergedLabelmapGeometryImage, selectedSegmentIds)
 
 # Perform grow-cut segmentation
-growCutFilter = vtkSlicerSegmentationsModuleLogic.vtkImageGrowCutSegment()
-growCutFilter.SetIntensityVolume(masterImageClipper.GetOutput())
-growCutFilter.SetSeedLabelVolume(mergedImage)
-growCutFilter.Update()
+# growCutFilter = vtkSlicerSegmentationsModuleLogic.vtkImageGrowCutSegment()
+# growCutFilter.SetIntensityVolume(masterImageClipper.GetOutput())
+# growCutFilter.SetSeedLabelVolume(mergedImage)
+# growCutFilter.Update()
+
+fastgrowcut = vtkITK.vtkITKGrowCut()
+fastgrowcut.SetIntensityVolume(masterImageClipper.GetOutput())
+fastgrowcut.SetSeedLabelVolume(mergedImage)
+fastgrowcut.Update()
+growCutFilter = fastgrowcut
+
 # Convert to oriented image data
 resultImage = vtkSegmentationCore.vtkOrientedImageData()
+#resultImage.ShallowCopy(mergedLabelmapGeometryImage.GetImageData())
 resultImage.ShallowCopy(growCutFilter.GetOutput())
 resultImage.CopyDirections(mergedLabelmapGeometryImage)
 
 # Update segmentation from grow-cut result
 slicer.vtkSlicerSegmentationsModuleLogic.ImportLabelmapToSegmentationNode(resultImage, segmentationNode, selectedSegmentIds)
 
-# Delete the background segment to make the tumor visible
-segmentationNode.RemoveSegment(backgroundSegmentId)
