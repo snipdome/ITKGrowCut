@@ -104,6 +104,9 @@ public:
   itkSetMacro(DistancePenalty, double);
   itkGetMacro(DistancePenalty, double);
 
+  void 
+  MyMethod() const;
+
   void
   PrintSelf(std::ostream & os, Indent indent) const override;
 
@@ -194,7 +197,7 @@ private:
 } // namespace itk
 
 #ifndef ITK_MANUAL_INSTANTIATION
-#  include "itkFastGrowCut.hxx"
+#  include "../src/itkFastGrowCut.cxx"
 #endif
 
 #endif // itkFastGrowCut

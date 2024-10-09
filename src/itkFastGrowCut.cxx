@@ -30,7 +30,7 @@ void
 ExtractITKImageROI(const itk::Image<PixelType, 3> * im,
                    const std::vector<long> &        imROI,
                    std::vector<PixelType> &         imROIVec)
-{
+{ //maybe used for debugging
 
   // Copy itk image ROI to vector
   typedef itk::Image<PixelType, 3> ImageType;
@@ -443,6 +443,12 @@ FastGrowCut<TInputImage, TLabelImage, TMaskImage>::GenerateInputRequestedRegion(
   }
 }
 
+template <typename TInputImage, typename TLabelImage, typename TMaskImage>
+void
+FastGrowCut<TInputImage, TLabelImage, TMaskImage>::MyMethod() const
+{
+  std::cout << "Mymethod" << std::endl;
+}
 
 template <typename TInputImage, typename TLabelImage, typename TMaskImage>
 void
