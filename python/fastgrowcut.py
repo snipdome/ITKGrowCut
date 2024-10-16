@@ -3,6 +3,7 @@
 import vtkSegmentationCorePython as vtkSegmentationCore 
 import vtkSlicerSegmentationsModuleLogicPython as vtkSlicerSegmentationsModuleLogic
 import vtkITK
+import time
 
 
 # Create master volume
@@ -106,15 +107,18 @@ segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImage,
 fastgrowcut = vtkITK.vtkITKGrowCut()
 fastgrowcut.SetIntensityVolume(masterImageClipper.GetOutput())
 fastgrowcut.SetSeedLabelVolume(mergedImage)
+time_fastgrowcut = time.time()
 fastgrowcut.Update()
-growCutFilter = fastgrowcut
+time_fastgrowcut = time.time() - time_fastgrowcut
 
 # Convert to oriented image data
 resultImage = vtkSegmentationCore.vtkOrientedImageData()
 #resultImage.ShallowCopy(mergedLabelmapGeometryImage.GetImageData())
-resultImage.ShallowCopy(growCutFilter.GetOutput())
+resultImage.ShallowCopy(fastgrowcut.GetOutput())
 resultImage.CopyDirections(mergedLabelmapGeometryImage)
 
 # Update segmentation from grow-cut result
 slicer.vtkSlicerSegmentationsModuleLogic.ImportLabelmapToSegmentationNode(resultImage, segmentationNode, selectedSegmentIds)
 
+# print timing
+print(f"FastGrowCut time: {time_fastgrowcut:.2f} s")
